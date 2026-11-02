@@ -950,19 +950,23 @@ $("method").onchange = () => {
   updateMethodControls();
   invalidate();
 };
+async function confirmDiscard() {
+  setBusy(true, "");
+  try {
+    return await window.editor.confirmDiscard();
+  } catch (error) {
+    status.textContent = t("Error: ") + t(error.message);
+    return false;
+  } finally {
+    setBusy(false);
+  }
+}
 $("openEmpty").onclick = () => $("open").click();
 $("open").onclick = async () => {
   if (busy) return;
   if (loaded) {
     saveMask();
-    if (
-      !window.confirm(
-        t(
-          "Se cerrará la imagen y se perderán los cambios no exportados. ¿Quieres continuar?",
-        ),
-      )
-    )
-      return;
+    if (!(await confirmDiscard())) return;
   }
   setOpenFeedback(status, $("emptyStatus"), "");
   setBusy(true, t("Preparando vista previa…"));
@@ -1129,14 +1133,7 @@ $("apply").onclick = async () => {
 $("close").onclick = async () => {
   if (!loaded || busy) return;
   saveMask();
-  if (
-    !window.confirm(
-      t(
-        "Se cerrará la imagen y se perderán los cambios no exportados. ¿Quieres continuar?",
-      ),
-    )
-  )
-    return;
+  if (!(await confirmDiscard())) return;
   try {
     await window.editor.close();
     stopDrag();

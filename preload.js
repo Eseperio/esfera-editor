@@ -4,6 +4,7 @@ contextBridge.exposeInMainWorld("editor", {
   setLanguage: (language) => ipcRenderer.invoke("set-language", language),
   capabilities: () => ipcRenderer.invoke("capabilities"),
   selectSubject: (data) => ipcRenderer.invoke("select-subject", data),
+  confirmDiscard: () => ipcRenderer.invoke("confirm-discard"),
   close: () => ipcRenderer.invoke("close-image"),
   open: (maxWidth) => ipcRenderer.invoke("open", maxWidth),
   apply: (document) => ipcRenderer.invoke("apply", document),

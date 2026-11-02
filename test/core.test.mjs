@@ -124,3 +124,19 @@ test("subject view snapshots the exact perspective and preserves little-planet c
   assert.equal(perspective.lat, 20);
   assert.equal(perspective.fov, 70);
 });
+
+test("fast drags retain direction and limit the inertial tail", () => {
+  const velocity = launchVelocity([{ dx: 80, dy: 0, t: 16, dt: 16 }], 16);
+  assert.ok(velocity.x > 0);
+  assert.equal(velocity.y, 0);
+  assert.ok(velocity.x <= 0.08);
+  let x = 0,
+    v = velocity.x;
+  for (let i = 0; i < 1200; i++) {
+    const step = integrateVelocity(v, 1000 / 120);
+    x += step.distance;
+    v = step.velocity;
+  }
+  assert.ok(x <= 20.8 + 1e-9);
+  assert.ok(x > 20.79);
+});

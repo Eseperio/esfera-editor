@@ -31,6 +31,18 @@ function exclusive(channel, handler) {
     }
   });
 }
+function discardDialogOptions() {
+  return {
+    type: "question",
+    buttons: [translate("Cancelar", "Cancel"), translate("Cerrar", "Close")],
+    defaultId: 0,
+    cancelId: 0,
+    message: translate(
+      "Se cerrará la imagen y se perderán los cambios no exportados. ¿Quieres continuar?",
+      "The image will close and unsaved changes will be lost. Continue?",
+    ),
+  };
+}
 app.whenReady().then(() => {
   win = new BrowserWindow({
     width: 1400,
@@ -49,21 +61,17 @@ app.whenReady().then(() => {
       return;
     }
     if (!current) return;
-    const choice = dialog.showMessageBoxSync(win, {
-      type: "question",
-      buttons: [translate("Cancelar", "Cancel"), translate("Cerrar", "Close")],
-      defaultId: 0,
-      cancelId: 0,
-      message: translate(
-        "Se cerrará la imagen y se perderán los cambios no exportados. ¿Quieres continuar?",
-        "The image will close and unsaved changes will be lost. Continue?",
-      ),
-    });
+    const choice = dialog.showMessageBoxSync(win, discardDialogOptions());
     if (choice !== 1) event.preventDefault();
   });
   win.loadFile("index.html");
 });
 app.on("window-all-closed", () => app.quit());
+exclusive("confirm-discard", async () => {
+  if (!current) return false;
+  const { response } = await dialog.showMessageBox(win, discardDialogOptions());
+  return response === 1;
+});
 exclusive("close-image", () => {
   current = null;
   applied = null;

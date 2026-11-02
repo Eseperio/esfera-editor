@@ -30,12 +30,19 @@ test("two masks process in order and export at original dimensions with metadata
       )
       .jpeg({ quality: 95 })
       .toFile(input);
+    let confirmResponse = 0,
+      confirmOptions;
     const handlers = new Map(),
       electron = {
         app: { whenReady: () => ({ then() {} }), on() {} },
         BrowserWindow: class {},
         ipcMain: { handle: (name, fn) => handlers.set(name, fn) },
         dialog: {
+          showMessageBox: async (_window, options) => {
+            confirmOptions = options;
+            if (confirmResponse === "error") throw new Error("dialog failure");
+            return { response: confirmResponse };
+          },
           showOpenDialog: async () => ({ canceled: false, filePaths: [input] }),
           showSaveDialog: async () => ({ canceled: false, filePath: output }),
         },
@@ -59,11 +66,22 @@ test("two masks process in order and export at original dimensions with metadata
       /Abre primero una imagen/,
     );
     await handlers.get("open")();
+    assert.equal(await handlers.get("confirm-discard")(), false);
+    assert.deepEqual(confirmOptions.buttons, ["Cancelar", "Cerrar"]);
+    assert.equal(confirmOptions.defaultId, 0);
+    assert.equal(confirmOptions.cancelId, 0);
+    confirmResponse = 1;
+    assert.equal(await handlers.get("confirm-discard")(), true);
+    confirmResponse = "error";
+    await assert.rejects(handlers.get("confirm-discard")());
+    confirmResponse = 0;
     await assert.rejects(
       handlers.get("apply")(null, { masks: [], stamps: [] }),
       /Añade primero una selección o un sello/,
     );
     await handlers.get("set-language")(null, "en");
+    assert.equal(await handlers.get("confirm-discard")(), false);
+    assert.deepEqual(confirmOptions.buttons, ["Cancel", "Close"]);
     async function mask(left) {
       return (
         "data:image/png;base64," +
