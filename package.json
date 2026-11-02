@@ -1,0 +1,1 @@
+{"name":"esfera-editor","version":"0.1.0","private":true,"description":"Editor local de panoramas 360","main":"main.js","scripts":{"start":"electron .","check":"node --check main.js && node --check preload.js && node --check renderer.js"},"dependencies":{"electron":"^39.0.0","sharp":"^0.34.0","three":"^0.181.0"}}

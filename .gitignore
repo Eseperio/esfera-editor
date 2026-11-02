@@ -1,0 +1,6 @@
+node_modules/
+.venv/
+__pycache__/
+models/LaMa.mlpackage/
+models/LaMa.mlmodelc/
+native/lama-runner
