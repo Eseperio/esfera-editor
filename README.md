@@ -1,35 +1,32 @@
-# Esfera: prototipo local
+# Esfera
 
-Editor de panoramas equirectangulares JPEG/PNG/WebP 2:1, hasta 75 MP. La Insta360 X5 produce hasta 11.904 × 5.952: exporta primero el panorama 360 desde Insta360 Studio. INSP y DNG no se abren directamente.
+[Español](README.es.md)
 
-## Inicio
+Esfera is an experimental, local editor for 2:1 equirectangular panoramas. Navigate in perspective, wide and little-planet views; paint or erase selections on independent masks; try several local removal methods; and place spherical stamps. It does not upload photos or require an account. JPEG, PNG and WebP panoramas up to 75 megapixels are supported. Export INSP or DNG from the camera software first; Esfera cannot read those formats directly.
 
-Requiere Node.js y dependencias instaladas: `npm install` y `npm start`. Abre una imagen, gira la vista, selecciona «Pintar selección», pinta sobre la persona y exporta. El original no se sobrescribe. La vista previa se reduce a 4096 × 2048; la exportación conserva las dimensiones originales y aplica el difuminado con Sharp.
+## Setup
 
-## Alcance y límites
+Requires macOS, Node.js 22.12 or newer, npm, Python 3 and the Xcode command-line tools. Vision subject selection needs macOS 14 or later. The helpers and LaMa have been exercised on macOS 15.5; the rest of the application has not been validated on Windows or Linux.
 
-El efecto local difumina, no reconstruye el fondo; su fuerza depende del tamaño del sujeto. Comprueba visualmente que la persona quede suficientemente irreconocible. La máscara se dibuja sobre la esfera con resolución reducida, con lo que sus bordes pueden ser menos precisos en la imagen final. Los polos y las zonas que cruzan la costura necesitan revisión. El proceso a 72 MP requiere bastante memoria. La salida JPEG es una imagen equirectangular; la conservación de metadatos 360 y su reconocimiento en cada visor deben comprobarse con archivos reales.
+```sh
+npm ci
+npm run setup:python
+npm run setup:native
+npm start
+```
 
-La selección automática de personas aún no está implementada. Los métodos disponibles se ejecutan localmente.
+OpenCV is used by guided processing and stamps. LaMa is optional. To download and compile the published Core ML conversion, run `npm run setup:lama`. The script checks SHA-256 hashes of its three source files, skips an already compiled model and does not commit weights. It downloads approximately 206 MiB and the compiled model requires additional space. Sources and licenses are recorded in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md). A fresh download and compilation should be verified on the target system; an existing local model was used for development.
 
-## Perspectiva y líneas (experimental)
+## Editing
 
-Requiere Python 3 y OpenCV en `.venv`: `python3 -m venv .venv` y `.venv/bin/pip install opencv-python-headless`. Centra toda la selección en la vista dejando margen. Al aplicar, se proyecta la panorámica a una vista 2D, se detectan segmentos con OpenCV y se combinan las direcciones de los dos segmentos cercanos. Para cada zona se interpola en una dirección aproximada; si no hay líneas cercanas, se usa dirección horizontal en la vista. El resultado se reproyecta a la panorámica. El mensaje indica cuántas líneas se detectaron.
+Open a panorama, drag to look, use the wheel or trackpad pinch to zoom, and choose a projection preset. Paint and erase on the selected mask. Each mask has its own enabled state, method and settings; double-click a mask name to rename it. Subject selection uses Apple's local Vision foreground instances and can select multiple subjects; review and correct the resulting selection before applying. It is unavailable when its native helper cannot run. Add a stamp in the Stamp tab, import an image or use a solid color, place it on the sphere and adjust its outer size and inner framing. Apply the preview after changes; export uses the last applied state.
 
-Esta es una aproximación: todavía no construye ni muestra pares de guías o regiones con una homografía independiente. Las líneas elegidas pueden ser ajenas al fondo oculto. El relleno se calcula sobre una vista de 1600 píxeles de ancho, también al exportar a resolución original; por tanto, la zona editada pierde detalle. No se ha validado con 72 MP ni con fotografías reales; revisa el resultado y la compatibilidad 360 antes de utilizarlo.
+Guided and LaMa processing use a rectilinear view fitted to each mask. Very wide or incompatible selections must be split into masks. Guided processing uses a view up to 1600 pixels on its longest side; LaMa processes an 800 × 800 crop, so the edited region may lose detail. The viewer initially uses a texture no larger than 8192 pixels wide and GPU limits; the applied preview can be smaller. Neither is a full-resolution inspection of every large source. Review seams, poles, selection edges and stamp alignment carefully.
 
-La exportación copia EXIF, XMP, IPTC y perfiles ICC disponibles desde el original mediante Sharp. Se ha comprobado con una imagen sintética que conserva el modelo EXIF y los campos XMP GPano ensayados; sigue pendiente comprobar archivos reales de Insta360 y su reconocimiento en visores 360. Las exportaciones anteriores a este cambio podían perder los metadatos originales.
+## Export and metadata
 
-«Cerrar imagen» descarta la selección y la vista previa; pide confirmación si existe una selección. Deshacer permite recuperar trazos de selección y una limpieza, pero no revierte un archivo exportado.
+Export writes a different JPEG file at the source dimensions, with selectable quality 1–100 and 4:4:4 chroma subsampling. The processing pipeline uses lossless PNG intermediates and performs one final JPEG encoding. Sharp copies supported metadata from the source, including existing GPS location; pixel colors are converted to sRGB and the export carries an sRGB profile rather than the original ICC profile. Wide-gamut colors outside sRGB may be clipped; inspect and remove location separately before sharing if needed. EXIF, XMP and ICC preservation has been checked on synthetic fixtures, not every proprietary Insta360 tag or viewer. Embedded proprietary metadata is not guaranteed to be understood or preserved universally. Large images can require substantial memory and processing time.
 
-## Eliminación con IA local
+The editor is experimental and does not promise privacy or reliable object removal. OCR, number-plate detection, face redaction and video are **not implemented**; see [ROADMAP.md](ROADMAP.md). Contributions are welcome: [CONTRIBUTING.md](CONTRIBUTING.md). Code is licensed under [MIT](LICENSE); dependencies retain their own licenses.
 
-El método «Eliminar con IA local (LaMa)» utiliza Core ML en el Mac, sin subir fotografías. Pinta completamente el objeto, incluida su silueta y sombra; encuadra toda la selección con espacio alrededor y pulsa Aplicar y previsualizar. El modelo es LaMa, no el borrador de Apple Fotos. Trabaja sobre un recorte cuadrado de 800 × 800 extraído de una vista 2D de 1600 píxeles de ancho y reproyecta la zona editada a la panorámica. La salida mantiene las dimensiones del original, pero la zona regenerada puede perder detalle. Una máscara excesivamente grande puede producir un resultado poco preciso. La exportación vuelve a ejecutar el modelo con los ajustes aplicados.
-
-Instalación actual: Apple Silicon, macOS 15.5, OpenCV en `.venv`, ejecutable `native/lama-runner` y modelo compilado `models/LaMa.mlmodelc`. Para reinstalar el modelo, descarga los tres archivos de `LaMa.mlpackage` desde `https://huggingface.co/mlboydaisuke/LaMa-CoreML/tree/main/LaMa.mlpackage`, compila con `xcrun coremlcompiler compile models/LaMa.mlpackage models` y construye el ejecutable con `xcrun swiftc -O native/LaMaRunner.swift -o native/lama-runner`. El paquete de pesos descargado ocupa aproximadamente 206 MiB; la versión compilada ocupa otros 207 MiB. No se versionan los pesos ni el ejecutable. LaMa: Apache 2.0; conversión de Core ML: https://github.com/mallman/CoreMLaMa; parte de la conversión de píxeles se adapta de https://github.com/Dunebru/erase bajo MIT, cuya licencia se incluye en `native/ERASE-MIT-LICENSE.txt`.
-
-## Calidad de exportación
-
-La vista previa se comprime únicamente para visualizarla. El resultado de la edición se procesa con intermediarios PNG, sin compresión JPEG intermedia. Al exportar se elige la calidad JPEG entre 1 y 100 (100 por defecto). Se realiza una única codificación final con pérdida y color 4:4:4. Se conservan las dimensiones y se copian los metadatos admitidos del original. Una calidad más alta puede producir archivos mayores; ningún valor recupera información que ya se perdió en el JPEG original.
-
-La IA procesa un recorte a 800 × 800, extraído de una vista de 1600 píxeles: solo la región editada tiene esa limitación de detalle. El flujo a 72 MP puede requerir mucha memoria y no se ha probado a esa resolución.
+Run `npm run check` for syntax and local automated tests. Some tests exercise Python and are skipped if `.venv` has not been set up. Real trackpad gestures, large camera files and platform-specific flows require separate manual testing.

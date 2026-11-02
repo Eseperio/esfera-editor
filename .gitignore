@@ -4,3 +4,15 @@ __pycache__/
 models/LaMa.mlpackage/
 models/LaMa.mlmodelc/
 native/lama-runner
+native/subject-mask
+*.pyc
+.env
+.env.*
+.DS_Store
+*.jpg
+*.jpeg
+*.webp
+*.heic
+*.insp
+*.dng
+exports/
