@@ -79,203 +79,304 @@
         </button>
       </nav>
       <section id="stage" aria-label="Visor de la fotografía">
-        <div id="viewer"></div>
-        <div id="empty">
-          <h1>Tu fotografía, en 360°</h1>
-          <p>Abre un panorama para empezar a editar.</p>
-          <button id="openEmpty" class="export-button">Abrir panorama</button>
-          <p id="emptyStatus" role="status" aria-live="polite"></p>
+        <div class="viewport">
+          <div id="viewer"></div>
+          <div id="empty">
+            <h1>Tu fotografía, en 360°</h1>
+            <p>Abre un panorama para empezar a editar.</p>
+            <button id="openEmpty" class="export-button">Abrir panorama</button>
+            <p id="emptyStatus" role="status" aria-live="polite"></p>
+          </div>
+          <div id="hint"></div>
         </div>
-        <div id="hint"></div>
-        <div class="zoom">
-          <button id="zoomOut" aria-label="Alejar">−</button
-          ><input
-            id="zoomSlider"
-            type="range"
-            min="0"
-            max="100"
-            value="65"
-            aria-label="Zoom"
-          /><button id="zoomIn" aria-label="Acercar">+</button>
-        </div>
-        <div class="presets">
-          <button id="perspective">Perspectiva</button
-          ><button id="wide">Amplia</button
-          ><button id="planet">Miniplaneta</button>
+        <div class="view-footer">
+          <div class="presets">
+            <button id="perspective">Perspectiva</button
+            ><button id="wide">Amplia</button
+            ><button id="planet">Miniplaneta</button>
+          </div>
+          <div class="zoom">
+            <button id="zoomOut" aria-label="Alejar">−</button
+            ><input
+              id="zoomSlider"
+              data-label="Zoom"
+              type="range"
+              min="0"
+              max="100"
+              value="65"
+              aria-label="Zoom"
+            /><button id="zoomIn" aria-label="Acercar">+</button>
+          </div>
         </div>
       </section>
       <aside>
-        <nav class="inspector-tabs" aria-label="Inspector">
-          <button data-tab="edit" class="active">Edición</button
-          ><button data-tab="stamp">Sello</button
-          ><button data-tab="info">Información</button>
-        </nav>
         <div class="sidebar-scroll">
-          <section id="editTab" class="tab-panel">
-            <div class="mask-heading">
-              <strong>Máscaras</strong
-              ><button id="addMask" title="Añadir máscara">+</button>
+          <details class="panel" id="masksSection" open>
+            <summary>Máscaras</summary>
+            <div class="panel-body">
+              <div class="mask-heading">
+                <button
+                  id="addMask"
+                  title="Añadir máscara"
+                  aria-label="Añadir máscara"
+                >
+                  +
+                </button>
+              </div>
+              <div id="maskList"></div>
+              <label class="control range-row"
+                ><span>Pincel</span><output id="brushValue" hidden>35</output
+                ><input
+                  type="range"
+                  id="brush"
+                  data-label="Tamaño del pincel"
+                  aria-label="Tamaño del pincel"
+                  title="Tamaño del pincel"
+                  min="5"
+                  max="140"
+                  value="35"
+              /></label>
+              <div class="selection-actions">
+                <button
+                  id="undo"
+                  class="subtle"
+                  disabled
+                  title="Deshacer última operación (⌘Z)"
+                >
+                  Deshacer</button
+                ><button id="clear" class="subtle">Limpiar</button>
+              </div>
             </div>
-            <div id="maskList"></div>
-            <label class="control"
-              >Tamaño del pincel <output id="brushValue">35</output
-              ><input type="range" id="brush" min="5" max="140" value="35"
-            /></label>
-            <div class="selection-actions">
-              <button
-                id="undo"
-                class="subtle"
-                disabled
-                title="Deshacer última operación (⌘Z)"
+          </details>
+          <details class="panel" id="removalSection" open>
+            <summary>Eliminación</summary>
+            <div class="panel-body">
+              <label class="select-row"
+                ><span>Método</span
+                ><select id="method">
+                  <option value="guided">Perspectiva y líneas</option>
+                  <option value="ai_local">Eliminar con IA local (LaMa)</option>
+                  <option value="stretch">Estirar bordes</option>
+                  <option value="clone">Copiar fondo cercano</option>
+                  <option value="blur">Difuminar</option>
+                </select></label
               >
-                ↶ <span>Deshacer</span></button
-              ><button id="clear" class="subtle">⌫ <span>Limpiar</span></button>
+              <details class="advanced">
+                <summary>Ajustes avanzados</summary>
+                <div class="advanced-content">
+                  <label class="control range-row" id="sampleLabel"
+                    ><span>Muestra</span
+                    ><output id="sampleValue" hidden>10</output
+                    ><input
+                      type="range"
+                      id="sample"
+                      data-label="Muestra de los bordes"
+                      aria-label="Muestra de los bordes"
+                      title="Muestra de los bordes"
+                      min="1"
+                      max="100"
+                      value="10" /></label
+                  ><label class="control range-row" id="offsetLabel"
+                    ><span>Desplazamiento</span
+                    ><output id="offsetValue" hidden>10</output
+                    ><input
+                      type="range"
+                      id="offset"
+                      data-label="Desplazamiento horizontal"
+                      aria-label="Desplazamiento horizontal"
+                      title="Desplazamiento horizontal"
+                      min="-40"
+                      max="40"
+                      value="10" /></label
+                  ><label class="control range-row" id="blurLabel"
+                    ><span>Intensidad</span
+                    ><output id="blurValue" hidden>30</output
+                    ><input
+                      type="range"
+                      id="blur"
+                      data-label="Intensidad"
+                      min="1"
+                      max="100"
+                      value="30" /></label
+                  ><label class="control range-row" id="centerLabel"
+                    ><span>Fusión</span
+                    ><output id="centerSmoothValue" hidden>8</output
+                    ><input
+                      type="range"
+                      id="centerSmooth"
+                      data-label="Fusión interior"
+                      aria-label="Fusión interior"
+                      title="Fusión interior"
+                      min="0"
+                      max="30"
+                      value="8" /></label
+                  ><label class="control range-row"
+                    ><span>Suavizado</span
+                    ><output id="featherValue" hidden>8</output
+                    ><input
+                      type="range"
+                      id="feather"
+                      data-label="Suavizado de bordes"
+                      aria-label="Suavizado de bordes"
+                      title="Suavizado de bordes"
+                      min="0"
+                      max="50"
+                      value="8"
+                  /></label>
+                </div>
+              </details>
             </div>
-            <div class="divider"></div>
-            <label class="control"
-              >Método<select id="method">
-                <option value="guided">Perspectiva y líneas</option>
-                <option value="ai_local">Eliminar con IA local (LaMa)</option>
-                <option value="stretch">Estirar bordes</option>
-                <option value="clone">Copiar fondo cercano</option>
-                <option value="blur">Difuminar</option>
-              </select></label
-            >
-            <details class="advanced">
-              <summary>Ajustes avanzados</summary>
-              <div class="advanced-content">
-                <label id="sampleLabel" class="control"
-                  >Muestra de los bordes <output id="sampleValue">10</output
+          </details>
+          <details class="panel" id="stampsSection">
+            <summary>Sellos</summary>
+            <div class="panel-body">
+              <div class="stamp-heading">
+                <div id="stampList"></div>
+                <button
+                  id="addStamp"
+                  class="subtle"
+                  title="Añadir sello"
+                  aria-label="Añadir sello"
+                >
+                  +</button
+                ><button
+                  id="removeStamp"
+                  class="subtle"
+                  title="Eliminar"
+                  aria-label="Eliminar"
+                >
+                  ×
+                </button>
+              </div>
+              <div id="stampSettings" hidden>
+                <div class="stamp-import-row">
+                  <canvas
+                    id="stampPreview"
+                    width="128"
+                    height="128"
+                    role="img"
+                    aria-label="Vista previa del sello"
+                  ></canvas
+                  ><button id="importStamp" class="subtle">
+                    Importar imagen
+                  </button>
+                </div>
+                <div class="selection-actions placement">
+                  <button id="stampTop" class="subtle">Arriba</button
+                  ><button id="stampBottom" class="subtle">Abajo</button
+                  ><button id="stampHere" class="subtle">Vista actual</button>
+                </div>
+                <label class="control range-row"
+                  ><span>Tamaño</span
+                  ><output id="stampSizeValue" hidden>24</output
                   ><input
                     type="range"
-                    id="sample"
-                    min="1"
-                    max="100"
-                    value="10" /></label
-                ><label id="offsetLabel" class="control"
-                  >Desplazamiento horizontal <output id="offsetValue">10</output
+                    id="stampSize"
+                    data-label="Tamaño en panorama"
+                    aria-label="Tamaño en panorama"
+                    title="Tamaño en panorama"
+                    min="2"
+                    max="120"
+                    value="24" /></label
+                ><label class="control range-row"
+                  ><span>Rotación</span
+                  ><output id="stampRotationValue" hidden>0</output
                   ><input
                     type="range"
-                    id="offset"
-                    min="-40"
-                    max="40"
-                    value="10" /></label
-                ><label id="blurLabel" class="control"
-                  >Intensidad <output id="blurValue">30</output
-                  ><input
-                    type="range"
-                    id="blur"
-                    min="1"
-                    max="100"
-                    value="30" /></label
-                ><label id="centerLabel" class="control"
-                  >Fusión interior <output id="centerSmoothValue">8</output
-                  ><input
-                    type="range"
-                    id="centerSmooth"
+                    id="stampRotation"
+                    data-label="Rotación"
+                    aria-label="Rotación"
+                    title="Rotación"
                     min="0"
-                    max="30"
-                    value="8" /></label
-                ><label class="control"
-                  >Suavizado de bordes <output id="featherValue">8</output
-                  ><input type="range" id="feather" min="0" max="50" value="8"
+                    max="360"
+                    value="0" /></label
+                ><label class="control range-row"
+                  ><span>Escala</span
+                  ><output id="stampScaleValue" hidden>1</output
+                  ><input
+                    type="range"
+                    id="stampScale"
+                    data-label="Encuadre de imagen"
+                    aria-label="Encuadre de imagen"
+                    title="Encuadre de imagen"
+                    min="0.1"
+                    max="5"
+                    value="1"
+                    step="0.1" /></label
+                ><label class="control range-row"
+                  ><span>X</span><output id="stampXValue" hidden>0</output
+                  ><input
+                    type="range"
+                    id="stampX"
+                    data-label="Desplazamiento X"
+                    aria-label="Desplazamiento X"
+                    title="Desplazamiento X"
+                    min="-2"
+                    max="2"
+                    value="0"
+                    step="0.05" /></label
+                ><label class="control range-row"
+                  ><span>Y</span><output id="stampYValue" hidden>0</output
+                  ><input
+                    type="range"
+                    id="stampY"
+                    data-label="Desplazamiento Y"
+                    aria-label="Desplazamiento Y"
+                    title="Desplazamiento Y"
+                    min="-2"
+                    max="2"
+                    value="0"
+                    step="0.05"
                 /></label>
+                <div class="color-row">
+                  <span>Color</span
+                  ><input
+                    id="stampColor"
+                    type="color"
+                    value="#ffffff"
+                    aria-label="Color"
+                  /><input
+                    id="stampHex"
+                    type="text"
+                    value="#FFFFFF"
+                    maxlength="7"
+                    aria-label="Color hexadecimal"
+                    spellcheck="false"
+                  />
+                </div>
+                <div class="stamp-checks">
+                  <label
+                    ><input id="stampCircle" type="checkbox" checked /> Máscara
+                    circular</label
+                  ><label
+                    ><input id="stampEnabled" type="checkbox" checked /> Activar
+                    efecto</label
+                  >
+                </div>
+                <button id="stampCenter" class="subtle">
+                  Centrar encuadre
+                </button>
               </div>
-            </details>
-          </section>
-          <section id="stampTab" class="tab-panel" hidden>
-            <div id="stampPanel">
-              <div id="stampList"></div>
-              <div class="selection-actions">
-                <button id="addStamp" class="subtle">Añadir sello</button
-                ><button id="removeStamp" class="subtle">Eliminar</button>
-              </div>
-              <button id="importStamp" class="subtle stamp-import">
-                Importar imagen</button
-              ><canvas
-                id="stampPreview"
-                width="128"
-                height="128"
-                role="img"
-                aria-label="Vista previa del sello"
-                hidden
-              ></canvas>
-              <div class="selection-actions">
-                <button id="stampTop" class="subtle">Arriba</button
-                ><button id="stampBottom" class="subtle">Abajo</button
-                ><button id="stampHere" class="subtle">Vista actual</button>
-              </div>
-              <label class="control"
-                >Tamaño en panorama
-                <output id="stampSizeValue">24</output>°<input
-                  id="stampSize"
-                  type="range"
-                  min="2"
-                  max="120"
-                  value="24" /></label
-              ><label class="control"
-                >Rotación <output id="stampRotationValue">0</output>°<input
-                  id="stampRotation"
-                  type="range"
-                  min="0"
-                  max="360"
-                  value="0" /></label
-              ><label class="control"
-                >Encuadre de imagen <output id="stampScaleValue">1</output
-                ><input
-                  id="stampScale"
-                  type="range"
-                  min="0.1"
-                  max="5"
-                  step="0.1"
-                  value="1" /></label
-              ><label class="control"
-                >Desplazamiento X <output id="stampXValue">0</output
-                ><input
-                  id="stampX"
-                  type="range"
-                  min="-2"
-                  max="2"
-                  step="0.05"
-                  value="0" /></label
-              ><label class="control"
-                >Desplazamiento Y <output id="stampYValue">0</output
-                ><input
-                  id="stampY"
-                  type="range"
-                  min="-2"
-                  max="2"
-                  step="0.05"
-                  value="0" /></label
-              ><label class="stamp-check"
-                >Color
-                <input id="stampColor" type="color" value="#ffffff" /></label
-              ><label class="stamp-check"
-                ><input id="stampCircle" type="checkbox" checked /> Máscara
-                circular</label
-              ><label class="stamp-check"
-                ><input id="stampEnabled" type="checkbox" checked /> Activar
-                efecto</label
-              ><button id="stampCenter" class="subtle stamp-import">
-                Centrar encuadre
-              </button>
             </div>
-          </section>
-          <section id="infoTab" class="tab-panel" hidden>
-            <input
-              id="infoSearch"
-              type="search"
-              placeholder="Buscar metadatos"
-              aria-label="Buscar metadatos"
-            />
-            <dl id="imageInfo"></dl>
-          </section>
+          </details>
+          <details class="panel" id="infoSection">
+            <summary>Información</summary>
+            <div class="panel-body">
+              <input
+                id="infoSearch"
+                type="search"
+                placeholder="Buscar metadatos"
+                aria-label="Buscar metadatos"
+              />
+              <dl id="imageInfo"></dl>
+            </div>
+          </details>
         </div>
         <div class="panel-footer">
           <div id="status" role="status" aria-live="polite">
             Abre una fotografía para comenzar.
           </div>
-          <button id="apply" disabled>Aplicar y previsualizar</button>
+          <button id="apply" disabled>Aplicar</button>
         </div>
       </aside>
     </main>
@@ -292,7 +393,13 @@
         </p>
         <label class="control" for="exportQuality"
           >Calidad JPEG <output id="exportQualityValue">100</output
-          ><input id="exportQuality" type="range" min="1" max="100" value="100"
+          ><input
+            id="exportQuality"
+            data-label="Calidad JPEG"
+            type="range"
+            min="1"
+            max="100"
+            value="100"
         /></label>
         <p class="quality-note">
           La fotografía se comprimirá una sola vez al guardar.

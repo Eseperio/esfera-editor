@@ -1,6 +1,7 @@
 import * as THREE from "./node_modules/three/build/three.module.js";
 import { t, setLanguage, language, translateLive } from "./lib/i18n.mjs";
 import { setOpenFeedback } from "./lib/open-feedback.mjs";
+import { bindRange } from "./lib/controls.mjs";
 import {
   launchVelocity,
   integrateVelocity,
@@ -25,6 +26,7 @@ document.getElementById("language").onchange = (e) => {
   statusNode.textContent = translateLive(statusNode.textContent);
   renderMasks();
   stampUI();
+  syncRangeControls();
 };
 const $ = (id) => document.getElementById(id),
   viewer = $("viewer"),
@@ -218,6 +220,13 @@ function showInfo() {
   }
 }
 $("infoSearch").oninput = showInfo;
+const rangeControls = new Map();
+function syncRangeControls() {
+  for (const binding of rangeControls.values()) {
+    binding.sync();
+    binding.number.setAttribute("aria-label", t(binding.label));
+  }
+}
 const contour = document.createElement("canvas");
 contour.className = "stamp-contour";
 viewer.appendChild(contour);
@@ -347,8 +356,12 @@ function stampUI() {
     $(id).disabled = !s;
     if (s) $(id).checked = s[key];
   }
+  $("stampSettings").hidden = !s;
   $("stampColor").disabled = !s;
-  if (s) $("stampColor").value = s.color || "#ffffff";
+  if (s) {
+    $("stampColor").value = s.color || "#ffffff";
+    $("stampHex").value = $("stampColor").value.toUpperCase();
+  }
   for (const id of [
     "importStamp",
     "removeStamp",
@@ -359,6 +372,7 @@ function stampUI() {
   ])
     $(id).disabled = !s;
   drawStampPreview();
+  syncRangeControls();
 }
 function drawContour() {
   const ctx = contour.getContext("2d"),
@@ -372,7 +386,7 @@ function drawContour() {
   if (!loaded || busy) return;
   drawBrushContour(ctx, w, h);
   const s = selectedStamp();
-  if (!s || $("stampTab").hidden) return;
+  if (!s || !$("stampsSection").open) return;
   const lo = (s.lon * Math.PI) / 180,
     la = (s.lat * Math.PI) / 180,
     f = [
@@ -448,6 +462,7 @@ function loadMask(index, shouldSave = true) {
   redrawMask();
   updateMethodControls();
   renderMasks();
+  syncRangeControls();
 }
 function newMask() {
   return {
@@ -514,6 +529,8 @@ function setBusy(value, message = "") {
   if (value) {
     stopDrag();
     targetZoom = zoomValue;
+    $("zoomSlider").value = String(Math.round(targetZoom));
+    syncRangeControls();
     $("processingText").textContent = message;
   }
 }
@@ -609,10 +626,6 @@ function animate(now = performance.now()) {
     zoomValue += (targetZoom - zoomValue) * (1 - Math.exp(-dt / 45));
     if (Math.abs(zoomValue - targetZoom) < 0.01) zoomValue = targetZoom;
   }
-  const proj = parameters(zoomValue, lat);
-  camera.fov = THREE.MathUtils.radToDeg(proj.fov);
-  camera.updateProjectionMatrix();
-  $("zoomSlider").value = String(Math.round(targetZoom));
   for (const [id, value] of [
     ["perspective", 65],
     ["wide", 30],
@@ -631,6 +644,9 @@ function animate(now = performance.now()) {
     if (Math.abs(velocityLon) < 0.0001) velocityLon = 0;
     if (Math.abs(velocityLat) < 0.0001) velocityLat = 0;
   }
+  const proj = parameters(zoomValue, lat);
+  camera.fov = THREE.MathUtils.radToDeg(proj.fov);
+  camera.updateProjectionMatrix();
   if (sphere) {
     const u = sphere.material.uniforms;
     u.lon.value = THREE.MathUtils.degToRad(lon);
@@ -850,6 +866,8 @@ window.addEventListener("blur", () => stopDrag());
 function changeZoom(delta) {
   if (!loaded || !Number.isFinite(delta)) return;
   targetZoom = Math.max(0, Math.min(100, targetZoom - delta));
+  $("zoomSlider").value = String(Math.round(targetZoom));
+  syncRangeControls();
 }
 $("stage").addEventListener(
   "wheel",
@@ -875,6 +893,8 @@ for (const [id, value] of [
 ])
   $(id).onclick = () => {
     targetZoom = value;
+    $("zoomSlider").value = String(value);
+    syncRangeControls();
   };
 function setMode(v) {
   stopDrag();
@@ -934,17 +954,10 @@ for (const id of [
     }
   };
 function updateMethodControls() {
-  $("blurLabel").style.display =
-    $("method").value === "blur" ? "block" : "none";
-  $("offsetLabel").style.display =
-    $("method").value === "clone" ? "block" : "none";
-  $("sampleLabel").style.display = ["stretch", "guided"].includes(
-    $("method").value,
-  )
-    ? "block"
-    : "none";
-  $("centerLabel").style.display =
-    $("method").value === "guided" ? "block" : "none";
+  $("blurLabel").hidden = $("method").value !== "blur";
+  $("offsetLabel").hidden = $("method").value !== "clone";
+  $("sampleLabel").hidden = !["stretch", "guided"].includes($("method").value);
+  $("centerLabel").hidden = $("method").value !== "guided";
 }
 $("method").onchange = () => {
   updateMethodControls();
@@ -1159,6 +1172,8 @@ $("close").onclick = async () => {
     lat = 0;
     camera.fov = 70;
     ((targetFov = 70), (zoomValue = 65), (targetZoom = 65));
+    $("zoomSlider").value = String(targetZoom);
+    syncRangeControls();
     camera.updateProjectionMatrix();
     $("empty").style.display = "flex";
     setOpenFeedback(status, $("emptyStatus"), "");
@@ -1222,6 +1237,8 @@ $("subject").onclick = async () => {
     lon = capturedView.lon;
     lat = capturedView.lat;
     targetZoom = zoomValue = capturedView.zoom;
+    $("zoomSlider").value = String(Math.round(targetZoom));
+    syncRangeControls();
     if (wasPlanet)
       status.textContent = t(
         "La selección de sujeto utiliza una vista perspectiva.",
@@ -1408,17 +1425,51 @@ for (const id of [
   });
 }
 
-for (const button of document.querySelectorAll(".inspector-tabs button"))
-  button.onclick = () => {
-    for (const item of document.querySelectorAll(".inspector-tabs button"))
-      item.classList.toggle("active", item === button);
-    for (const id of ["edit", "stamp", "info"])
-      $(id + "Tab").hidden = id !== button.dataset.tab;
-  };
-
 $("stampColor").addEventListener("pointerdown", snapshot);
 $("stampColor").oninput = () => {
   selectedStamp().color = $("stampColor").value;
+  $("stampHex").value = $("stampColor").value.toUpperCase();
   drawStampPreview();
   invalidate();
 };
+
+for (const range of document.querySelectorAll('input[type="range"]')) {
+  const label =
+    range.dataset.label ||
+    range.getAttribute("aria-label") ||
+    range.closest("label")?.querySelector("span")?.textContent.trim() ||
+    (range.id === "exportQuality" ? "Calidad JPEG" : "Zoom");
+  rangeControls.set(
+    range.id,
+    bindRange(range, {
+      label,
+      beforeChange: () => {
+        if (range.id.startsWith("stamp")) snapshot();
+      },
+    }),
+  );
+}
+syncRangeControls();
+$("stampHex").addEventListener("change", () => {
+  const field = $("stampHex"),
+    value = field.value.trim();
+  if (!/^#[0-9a-f]{6}$/i.test(value)) {
+    field.value = $("stampColor").value.toUpperCase();
+    return;
+  }
+  if (value.toLowerCase() !== $("stampColor").value.toLowerCase()) {
+    snapshot();
+    $("stampColor").value = value;
+    $("stampColor").dispatchEvent(new Event("input", { bubbles: true }));
+  }
+  field.value = $("stampColor").value.toUpperCase();
+});
+$("stampHex").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    event.currentTarget.blur();
+  }
+});
+$("addMask").addEventListener("click", (event) => event.stopPropagation());
+
+updateMethodControls();

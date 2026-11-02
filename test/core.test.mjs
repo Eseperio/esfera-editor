@@ -140,3 +140,49 @@ test("fast drags retain direction and limit the inertial tail", () => {
   assert.ok(x <= 20.8 + 1e-9);
   assert.ok(x > 20.79);
 });
+
+test("projection changes never recenter and planet responds to yaw and pitch", () => {
+  for (const [lon, lat] of [
+    [0, 0],
+    [359, 42],
+    [120, -89.9],
+    [270, 89.9],
+  ]) {
+    const expected = direction(lon, lat);
+    for (const zoom of [0, 5, 15, 29, 30, 65, 100, 0]) {
+      const center = screenDirection(0, 0, 1.7, lon, lat, zoom);
+      assert.ok(center.every((v, i) => Math.abs(v - expected[i]) < 1e-12));
+    }
+  }
+  const center = screenDirection(0, 0, 1.5, 30, 20, 0);
+  const yaw = screenDirection(0, 0, 1.5, 40, 20, 0);
+  const pitch = screenDirection(0, 0, 1.5, 30, 30, 0);
+  assert.ok(Math.hypot(...center.map((v, i) => v - yaw[i])) > 0.1);
+  assert.ok(Math.hypot(...center.map((v, i) => v - pitch[i])) > 0.1);
+});
+
+test("projection inverse round trips stereo at poles, seam and viewport aspects", () => {
+  for (const aspect of [0.7, 1, 2])
+    for (const [lon, lat] of [
+      [359.9, 0],
+      [0.1, 0],
+      [45, 90],
+      [225, -90],
+      [179, 89.9],
+    ])
+      for (const zoom of [0, 15, 30, 65, 100])
+        for (const [x, y] of [
+          [-0.8, -0.7],
+          [0, 0],
+          [0.75, 0.6],
+        ]) {
+          const ray = screenDirection(x, y, aspect, lon, lat, zoom);
+          const screen = directionScreen(ray, aspect, lon, lat, zoom);
+          assert.ok(
+            screen &&
+              Math.abs(screen[0] - x) < 1e-8 &&
+              Math.abs(screen[1] - y) < 1e-8,
+            `zoom=${zoom} lon=${lon} lat=${lat} aspect=${aspect}`,
+          );
+        }
+});
