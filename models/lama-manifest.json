@@ -1,0 +1,22 @@
+{
+  "files": [
+    {
+      "path": "Manifest.json",
+      "url": "https://huggingface.co/mlboydaisuke/LaMa-CoreML/resolve/main/LaMa.mlpackage/Manifest.json",
+      "sha256": "c814fff3cedf827c044094545ef80b0280b6cb8dd0e5c0bcf69fd31921191e58",
+      "maxBytes": 1048576
+    },
+    {
+      "path": "Data/com.apple.CoreML/model.mlmodel",
+      "url": "https://huggingface.co/mlboydaisuke/LaMa-CoreML/resolve/main/LaMa.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+      "sha256": "06a100ef99e0fd16326a3a8c4a687d13f7b26f544ea906a75338932d8554f953",
+      "maxBytes": 10485760
+    },
+    {
+      "path": "Data/com.apple.CoreML/weights/weight.bin",
+      "url": "https://huggingface.co/mlboydaisuke/LaMa-CoreML/resolve/main/LaMa.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+      "sha256": "d0541f6044a94cd4982bfdac074fc1ccfe11d8f1f590c299d6b5071b501fc184",
+      "maxBytes": 240000000
+    }
+  ]
+}

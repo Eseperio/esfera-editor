@@ -17,6 +17,7 @@
         ><span id="fileName"></span>
       </div>
       <div class="header-actions">
+        <button id="localAI" class="top-button">IA local</button>
         <button id="open" class="top-button">Abrir fotografía</button
         ><button id="close" class="top-button" disabled>Cerrar imagen</button
         ><select id="language" aria-label="Language">
@@ -384,6 +385,27 @@
       <span class="spinner" aria-hidden="true"></span
       ><span id="processingText">Procesando imagen…</span>
     </div>
+    <dialog id="modelDialog" aria-labelledby="modelTitle">
+      <div class="dialog-content">
+        <h2 id="modelTitle">IA local · LaMa</h2>
+        <p>
+          Instala el modelo una vez para borrar personas y objetos sin subir tus
+          fotos.
+        </p>
+        <p>
+          Descarga: unos 206 MiB. Se necesita espacio adicional para instalarlo.
+        </p>
+        <p id="modelState" role="status" aria-live="polite"></p>
+        <progress id="modelProgress" max="100" hidden></progress>
+        <div class="dialog-actions">
+          <button id="closeModel">Cerrar</button>
+          <button id="cancelModel" hidden>Cancelar descarga</button>
+          <button id="installModel" class="export-button" disabled>
+            Instalar modelo
+          </button>
+        </div>
+      </div>
+    </dialog>
     <dialog id="exportDialog" aria-labelledby="exportTitle">
       <div class="dialog-content">
         <h2 id="exportTitle">Exportar fotografía</h2>

@@ -698,3 +698,16 @@ dialog::backdrop {
 output {
   display: none;
 }
+
+#localAI[data-ready="true"] {
+  border-color: #579b86;
+}
+#modelState {
+  min-height: 2.8em;
+  color: var(--text);
+}
+#modelProgress {
+  width: 100%;
+  height: 6px;
+  accent-color: var(--accent);
+}

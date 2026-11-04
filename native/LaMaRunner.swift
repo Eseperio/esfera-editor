@@ -25,6 +25,18 @@ func load(_ path: String) throws -> CGImage {
     return image
 }
 do {
+    let args = CommandLine.arguments
+    if args.count == 4 && args[1] == "--compile" {
+        let compiled = try MLModel.compileModel(at: URL(fileURLWithPath: args[2]))
+        defer { try? FileManager.default.removeItem(at: compiled) }
+        try FileManager.default.copyItem(at: compiled, to: URL(fileURLWithPath: args[3]))
+        exit(0)
+    }
+    if args.count == 3 && args[1] == "--check" {
+        _ = try MLModel(contentsOf: URL(fileURLWithPath: args[2]))
+        print("ready")
+        exit(0)
+    }
     guard CommandLine.arguments.count == 5 else { throw NSError(domain:"Esfera: argumentos incompletos",code:4) }
     let config=MLModelConfiguration(); config.computeUnits = .cpuAndGPU
     let model=try MLModel(contentsOf: URL(fileURLWithPath:CommandLine.arguments[1]),configuration:config)

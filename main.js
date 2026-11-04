@@ -8,6 +8,37 @@ const fs = require("fs/promises"),
 const { execFile } = require("child_process");
 const { promisify } = require("util");
 const runFile = promisify(execFile);
+const { createModelManager } = require("./lib/model-manager.cjs");
+const runtimeRoot = app.isPackaged
+  ? path.join(process.resourcesPath, "runtime")
+  : __dirname;
+const nativeFile = (name) => path.join(runtimeRoot, "native", name);
+function runProcessing(name, specification) {
+  const command = app.isPackaged
+    ? path.join(runtimeRoot, "python/esfera-process/esfera-process")
+    : path.join(__dirname, ".venv/bin/python");
+  const args = app.isPackaged
+    ? [name, JSON.stringify(specification)]
+    : [path.join(__dirname, name + ".py"), JSON.stringify(specification)];
+  return runFile(command, args, { maxBuffer: 1024 * 1024 });
+}
+let modelManager;
+function models() {
+  return (modelManager ||= createModelManager({
+    root: path.join(app.getPath("userData"), "models/lama-v1"),
+    legacy: app.isPackaged
+      ? null
+      : path.join(__dirname, "models/LaMa.mlmodelc"),
+    supported: process.platform === "darwin",
+    compile: (source, target, signal) =>
+      runFile(nativeFile("lama-runner"), ["--compile", source, target], {
+        signal,
+      }),
+    verify: (model, signal) =>
+      runFile(nativeFile("lama-runner"), ["--check", model], { signal }),
+  }));
+}
+app.setName?.("Esfera");
 let appLanguage = "en";
 const translate = (es, en) => (appLanguage === "es" ? es : en);
 let current = null,
@@ -44,7 +75,9 @@ function discardDialogOptions() {
   };
 }
 app.whenReady().then(() => {
+  app.dock?.setIcon(path.join(__dirname, "assets/icon.png"));
   win = new BrowserWindow({
+    icon: path.join(__dirname, "assets/icon.png"),
     width: 1400,
     height: 900,
     minWidth: 960,
@@ -64,7 +97,7 @@ app.whenReady().then(() => {
     const choice = dialog.showMessageBoxSync(win, discardDialogOptions());
     if (choice !== 1) event.preventDefault();
   });
-  win.loadFile("index.html");
+  win.loadFile(path.join(__dirname, "index.html"));
 });
 app.on("window-all-closed", () => app.quit());
 exclusive("confirm-discard", async () => {
@@ -255,16 +288,10 @@ async function processImage(maskData, opts, preview) {
     .toBuffer();
 }
 async function guidedImage(maskData, options, preview) {
-  if (options.method === "ai_local") {
-    try {
-      await fs.access(path.join(__dirname, "native/lama-runner"));
-      await fs.access(path.join(__dirname, "models/LaMa.mlmodelc"));
-    } catch {
-      throw Error(
-        "Falta instalar o compilar el modelo LaMa local. Consulta el README.",
-      );
-    }
-  }
+  const model =
+    options.method === "ai_local" ? (await models().status()).model : null;
+  if (options.method === "ai_local" && !model)
+    throw Error("Install the local AI model from the Local AI button first.");
   if (
     !options.view ||
     !["lon", "lat", "fov", "aspect"].every((k) =>
@@ -283,19 +310,15 @@ async function guidedImage(maskData, options, preview) {
       output,
       preview,
       method: options.method,
-      runner: path.join(__dirname, "native/lama-runner"),
-      model: path.join(__dirname, "models/LaMa.mlmodelc"),
+      runner: nativeFile("lama-runner"),
+      model,
       width: current.width,
       sample: options.sample,
       feather: options.feather,
       centerSmooth: options.centerSmooth,
       ...options.view,
     };
-    const child = await runFile(
-      path.join(__dirname, ".venv/bin/python"),
-      [path.join(__dirname, "guided.py"), JSON.stringify(spec)],
-      { maxBuffer: 1024 * 1024 },
-    );
+    const child = await runProcessing("guided", spec);
     const info = JSON.parse(child.stdout.trim());
     const result = await fs.readFile(output);
     return { image: result, info, overlay: true };
@@ -401,14 +424,11 @@ async function processMasks(items, preview, stamps = []) {
         }
         resolved.push(stamp);
       }
-      await runFile(
-        path.join(__dirname, ".venv/bin/python"),
-        [
-          path.join(__dirname, "stamps.py"),
-          JSON.stringify({ image: source, output, stamps: resolved }),
-        ],
-        { maxBuffer: 1024 * 1024 },
-      );
+      await runProcessing("stamps", {
+        image: source,
+        output,
+        stamps: resolved,
+      });
       source = output;
     }
     const finalPixels = await fs.readFile(source);
@@ -477,19 +497,35 @@ exclusive("export", async (_e, quality) => {
 });
 
 ipcMain.handle("capabilities", async () => {
-  let vision = false,
-    lama = false;
+  let vision = false;
   try {
-    await fs.access(path.join(__dirname, "native/subject-mask"));
+    await fs.access(nativeFile("subject-mask"));
     vision =
       process.platform === "darwin" && Number(os.release().split(".")[0]) >= 23;
   } catch {}
+  let installer = false;
   try {
-    await fs.access(path.join(__dirname, "native/lama-runner"));
-    await fs.access(path.join(__dirname, "models/LaMa.mlmodelc"));
-    lama = true;
+    await fs.access(nativeFile("lama-runner"));
+    installer = process.platform === "darwin";
   } catch {}
-  return { vision, lama };
+  const status = await models().status();
+  return { vision, lama: status.ready, lamaInstaller: installer };
+});
+ipcMain.handle("model-status", () => models().status());
+ipcMain.handle("cancel-model-install", () => {
+  models().cancel();
+});
+exclusive("install-model", async () => {
+  try {
+    return await models().install((progress) => {
+      if (win && !win.isDestroyed())
+        win.webContents.send("model-progress", progress);
+    });
+  } catch (error) {
+    if (error.name === "AbortError")
+      throw Error("Model installation cancelled.");
+    throw error;
+  }
 });
 exclusive("select-subject", async (_e, data) => {
   if (!current) throw Error("Open an image first.");
@@ -507,11 +543,9 @@ exclusive("select-subject", async (_e, data) => {
       input,
       Buffer.from(data.slice(data.indexOf(",") + 1), "base64"),
     );
-    const result = await runFile(
-      path.join(__dirname, "native/subject-mask"),
-      [input, output],
-      { maxBuffer: 1024 * 1024 },
-    );
+    const result = await runFile(nativeFile("subject-mask"), [input, output], {
+      maxBuffer: 1024 * 1024,
+    });
     if (result.stdout.trim() === "no_subject") return null;
     return (
       "data:image/png;base64," + (await fs.readFile(output)).toString("base64")

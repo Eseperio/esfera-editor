@@ -27,6 +27,7 @@ document.getElementById("language").onchange = (e) => {
   renderMasks();
   stampUI();
   syncRangeControls();
+  if ($("modelDialog").open) refreshModel();
 };
 const $ = (id) => document.getElementById(id),
   viewer = $("viewer"),
@@ -962,6 +963,7 @@ function updateMethodControls() {
 $("method").onchange = () => {
   updateMethodControls();
   invalidate();
+  if ($("method").value === "ai_local" && !localAIReady) showModel();
 };
 async function confirmDiscard() {
   setBusy(true, "");
@@ -1073,6 +1075,15 @@ $("apply").onclick = async () => {
     !stamps.some((s) => s.enabled)
   ) {
     status.textContent = t("Pinta primero la zona que deseas editar.");
+    return;
+  }
+  if (
+    masks.some(
+      (m) => m.enabled && m.strokes.length && m.method === "ai_local",
+    ) &&
+    !localAIReady
+  ) {
+    await showModel();
     return;
   }
   try {
@@ -1219,6 +1230,89 @@ $("confirmExport").onclick = async () => {
     $("close").disabled = false;
   }
 };
+
+let localAIReady = false;
+let installingModel = false;
+async function refreshModel() {
+  try {
+    const state = await window.editor.modelStatus();
+    localAIReady = state.ready;
+    $("localAI").dataset.ready = String(state.ready);
+    $("modelState").textContent = t(
+      state.ready
+        ? "Modelo instalado. Listo para usar."
+        : state.supported
+          ? "El modelo todavía no está instalado."
+          : "La instalación de IA local requiere macOS.",
+    );
+    $("installModel").hidden = state.ready;
+    $("installModel").disabled = !state.supported;
+    return state;
+  } catch (error) {
+    $("modelState").textContent = t("Error: ") + error.message;
+    $("installModel").disabled = false;
+  }
+}
+async function showModel() {
+  if (busy) return;
+  if (!$("modelDialog").open) $("modelDialog").showModal();
+  await refreshModel();
+}
+$("localAI").onclick = showModel;
+$("closeModel").onclick = () => $("modelDialog").close();
+$("modelDialog").addEventListener("cancel", (event) => {
+  if (installingModel) event.preventDefault();
+});
+$("cancelModel").onclick = () => {
+  $("cancelModel").disabled = true;
+  window.editor.cancelModelInstall();
+};
+$("installModel").onclick = async () => {
+  if (installingModel || busy) return;
+  installingModel = true;
+  setBusy(true);
+  // The modal itself blocks the workspace and keeps cancellation accessible.
+  $("processing").hidden = true;
+  $("installModel").disabled = true;
+  $("closeModel").hidden = true;
+  $("cancelModel").hidden = false;
+  $("cancelModel").disabled = false;
+  $("modelProgress").hidden = false;
+  $("modelProgress").removeAttribute("value");
+  $("modelState").textContent = t("Preparando instalación…");
+  const unsubscribe = window.editor.onModelProgress((progress) => {
+    const message =
+      progress.phase === "download"
+        ? "Descargando modelo…"
+        : progress.phase === "compile"
+          ? "Compilando modelo…"
+          : "Modelo instalado. Listo para usar.";
+    $("modelState").textContent =
+      t(message) +
+      (progress.phase === "download"
+        ? ` ${Math.round(progress.bytes / 1048576)} MiB`
+        : "");
+    if (progress.phase === "download" && progress.fileTotal)
+      $("modelProgress").value =
+        (progress.fileBytes / progress.fileTotal) * 100;
+    else $("modelProgress").removeAttribute("value");
+  });
+  try {
+    await window.editor.installModel();
+    await refreshModel();
+  } catch (error) {
+    $("modelState").textContent = t("Error: ") + error.message;
+    $("installModel").disabled = false;
+  } finally {
+    unsubscribe();
+    installingModel = false;
+    setBusy(false);
+    $("closeModel").hidden = false;
+    $("cancelModel").hidden = true;
+    $("modelProgress").hidden = true;
+  }
+};
+refreshModel();
 
 window.editor
   .capabilities()

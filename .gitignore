@@ -16,3 +16,11 @@ native/subject-mask
 *.insp
 *.dng
 exports/
+
+dist/
+build/python/
+build/pyinstaller/
+build/*.spec
+build/icon.iconset/
+build/licenses/
+release-dist/
