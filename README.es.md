@@ -35,7 +35,7 @@ La selección automática de sujetos requiere macOS 14 o posterior. El desarroll
 
 ## Descargar la aplicación
 
-Descarga la **versión preliminar para macOS Apple Silicon** en [GitHub Releases](https://github.com/Eseperio/esfera-editor/releases/tag/v0.2.0-preview.1). Incluye su entorno de ejecución: para usar la app descargada no hace falta instalar Node.js, Python ni Xcode.
+Descarga la **versión preliminar para macOS Apple Silicon** en [GitHub Releases](https://github.com/Eseperio/esfera-editor/releases). Incluye su entorno de ejecución: para usar la app descargada no hace falta instalar Node.js, Python ni Xcode.
 
 1. Descarga y descomprime el ZIP; mueve **Esfera.app** a Aplicaciones.
 2. Abre Esfera y pulsa **IA local → Instalar modelo**. El modelo se descarga una vez; tus fotos permanecen en tu equipo.

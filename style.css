@@ -711,3 +711,7 @@ output {
   height: 6px;
   accent-color: var(--accent);
 }
+
+#hint:empty {
+  display: none !important;
+}

@@ -24,3 +24,4 @@ build/*.spec
 build/icon.iconset/
 build/licenses/
 release-dist/
+viewer-dist/

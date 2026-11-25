@@ -1,6 +1,6 @@
 {
   "name": "esfera-editor",
-  "version": "0.2.0-preview.1",
+  "version": "0.2.0-preview.2",
   "license": "MIT",
   "private": true,
   "description": "Editor local de panoramas 360",
@@ -13,7 +13,8 @@
     "setup:python": "sh scripts/setup-python.sh",
     "setup:lama": "sh scripts/setup-lama.sh",
     "build:mac": "node scripts/build-mac.cjs",
-    "icons": "node scripts/build-icons.cjs"
+    "icons": "node scripts/build-icons.cjs",
+    "test:rendering": "electron test/rendering.electron.cjs"
   },
   "dependencies": {
     "exifr": "^7.1.3",

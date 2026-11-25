@@ -6,6 +6,7 @@ import {
   launchVelocity,
   integrateVelocity,
   normalizeWheel,
+  limitPanVelocity,
 } from "./lib/navigation.mjs";
 import {
   screenDirection,
@@ -15,7 +16,13 @@ import {
   angularDistance,
   fitDirections,
   subjectView,
+  navigationScale,
 } from "./lib/projection.mjs";
+import {
+  configurePanoramaTexture,
+  panoramaVertexShader,
+  panoramaFragmentShader,
+} from "./lib/panorama-material.mjs";
 document.getElementById("language").value = setLanguage(language());
 window.editor.setLanguage(language());
 document.getElementById("language").onchange = (e) => {
@@ -52,8 +59,9 @@ let lon = 0,
   last = null,
   previous = null,
   loaded = false;
-let velocityLon = 0,
-  velocityLat = 0,
+// Keep momentum in CSS pixels/ms so changing zoom does not accelerate it.
+let velocityX = 0,
+  velocityY = 0,
   lastMoveTime = 0,
   lastFrameTime = 0,
   motionSamples = [],
@@ -63,8 +71,8 @@ let velocityLon = 0,
   zoomValue = 65,
   targetZoom = 65;
 function stopInertia() {
-  velocityLon = 0;
-  velocityLat = 0;
+  velocityX = 0;
+  velocityY = 0;
   lastMoveTime = 0;
   motionSamples = [];
 }
@@ -634,16 +642,20 @@ function animate(now = performance.now()) {
   ])
     $(id).classList.toggle("active", Math.abs(targetZoom - value) < 0.01);
   if (!drag && mode === "navigate" && dt) {
-    const horizontal = integrateVelocity(velocityLon, dt),
-      vertical = integrateVelocity(velocityLat, dt);
-    lon += horizontal.distance;
-    const nextLat = lat + vertical.distance;
+    const scale = navigationScale(zoomValue, viewer.clientHeight);
+    const horizontal = integrateVelocity(
+        limitPanVelocity(velocityX, scale),
+        dt,
+      ),
+      vertical = integrateVelocity(limitPanVelocity(velocityY, scale), dt);
+    lon += horizontal.distance * scale;
+    const nextLat = lat + vertical.distance * scale;
     lat = Math.max(-89, Math.min(89, nextLat));
-    if (lat !== nextLat) velocityLat = 0;
-    velocityLon = horizontal.velocity;
-    velocityLat = lat === nextLat ? vertical.velocity : 0;
-    if (Math.abs(velocityLon) < 0.0001) velocityLon = 0;
-    if (Math.abs(velocityLat) < 0.0001) velocityLat = 0;
+    if (lat !== nextLat) velocityY = 0;
+    velocityX = horizontal.velocity;
+    velocityY = lat === nextLat ? vertical.velocity : 0;
+    if (Math.abs(velocityX) < 0.0001) velocityX = 0;
+    if (Math.abs(velocityY) < 0.0001) velocityY = 0;
   }
   const proj = parameters(zoomValue, lat);
   camera.fov = THREE.MathUtils.radToDeg(proj.fov);
@@ -802,25 +814,26 @@ renderer.domElement.addEventListener("pointermove", (e) => {
   if (mode === "navigate") {
     const now = performance.now(),
       dt = Math.max(1, now - last.time),
-      dx = -(e.clientX - last.x) * 0.16,
-      dy = (e.clientY - last.y) * 0.16;
-    lon += dx;
-    const nextLat = lat + dy;
+      dx = -(e.clientX - last.x),
+      dy = e.clientY - last.y,
+      scale = navigationScale(zoomValue, viewer.clientHeight);
+    lon += dx * scale;
+    const nextLat = lat + dy * scale;
     lat = Math.max(-89, Math.min(89, nextLat));
     if (dx || dy) {
-      dragDistance += Math.hypot(dx, dy) / 0.16;
+      dragDistance += Math.hypot(dx, dy);
       const usableY = lat === nextLat ? dy : 0;
       if (dx || usableY) lastDirection = { x: dx, y: usableY };
       motionSamples.push({
-        dx: dx / 0.16,
-        dy: (lat === nextLat ? dy : 0) / 0.16,
+        dx,
+        dy: lat === nextLat ? dy : 0,
         dt: Math.min(dt, 80),
         t: now,
       });
       motionSamples = motionSamples.filter((sample) => now - sample.t <= 130);
-      const launch = launchVelocity(motionSamples, now);
-      velocityLon = launch.x;
-      velocityLat = launch.y;
+      const launch = launchVelocity(motionSamples, now, 1);
+      velocityX = launch.x;
+      velocityY = launch.y;
       lastMoveTime = now;
     }
     last = { x: e.clientX, y: e.clientY, time: now };
@@ -845,9 +858,9 @@ function stopDrag(keepInertia = false) {
   )
     stopInertia();
   else {
-    const launch = launchVelocity(motionSamples, performance.now());
-    velocityLon = launch.x;
-    velocityLat = launch.y;
+    const launch = launchVelocity(motionSamples, performance.now(), 1);
+    velocityX = launch.x;
+    velocityY = launch.y;
   }
   drag = false;
   previous = null;
@@ -996,8 +1009,7 @@ $("open").onclick = async () => {
     const texture = await new THREE.TextureLoader().loadAsync(
       "data:image/jpeg;base64," + data.preview,
     );
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.anisotropy = renderer.capabilities.getMaxAnisotropy();
+    configurePanoramaTexture(texture, renderer.capabilities.getMaxAnisotropy());
     if (sphere) {
       scene.remove(sphere);
       sphere.material.dispose();
@@ -1026,7 +1038,7 @@ $("open").onclick = async () => {
     document.body.classList.remove("no-document");
     $("undo").disabled = true;
     overlay = new THREE.CanvasTexture(mask);
-    overlay.colorSpace = THREE.SRGBColorSpace;
+    configurePanoramaTexture(overlay, renderer.capabilities.getMaxAnisotropy());
     const base = new THREE.Mesh(
       geo,
       new THREE.ShaderMaterial({
@@ -1041,11 +1053,8 @@ $("open").onclick = async () => {
           stereoFov: { value: 1 },
           blend: { value: 0 },
         },
-        vertexShader: `varying vec2 pos; void main(){pos=position.xy;gl_Position=vec4(position.xy,0.,1.);}`,
-        fragmentShader:
-          `uniform sampler2D image,selection;uniform float lon,lat,aspect,fov,stereoFov,blend,showSelection;varying vec2 pos;void main(){vec3 f=vec3(cos(lat)*cos(lon),sin(lat),cos(lat)*sin(lon));vec3 r=vec3(-sin(lon),0.,cos(lon));vec3 up=cross(r,f);vec2 p=vec2(pos.x*aspect,pos.y);float radius=length(p);float theta=mix(atan(radius*tan(fov/2.)),2.*atan(radius*tan(stereoFov/4.)),blend);vec3 d=radius<0.00001?f:f*cos(theta)+(r*p.x+up*p.y)/radius*sin(theta);vec2 uv=vec2(fract(atan(d.z,d.x)/6.28318530718+1.),1.-acos(clamp(d.y,-1.,1.))/3.14159265359);vec4 color=texture2D(image,uv);vec4 mask=texture2D(selection,uv);gl_FragColor=vec4(mix(color.rgb,mask.rgb,mask.a*.55*showSelection),1.);#include <colorspace_fragment>}`
-            .replace(";#include", ";\n#include")
-            .replace("<colorspace_fragment>}", "<colorspace_fragment>\n}"),
+        vertexShader: panoramaVertexShader,
+        fragmentShader: panoramaFragmentShader,
       }),
     );
     sphere = base;
@@ -1053,6 +1062,7 @@ $("open").onclick = async () => {
     loaded = true;
     $("empty").style.display = "none";
     $("hint").style.display = "block";
+    setMode("navigate");
     $("close").disabled = false;
     $("apply").disabled = false;
     $("export").disabled = true;
@@ -1131,7 +1141,7 @@ $("apply").onclick = async () => {
     const texture = await new THREE.TextureLoader().loadAsync(
       "data:image/jpeg;base64," + result.image,
     );
-    texture.colorSpace = THREE.SRGBColorSpace;
+    configurePanoramaTexture(texture, renderer.capabilities.getMaxAnisotropy());
     if (previewTexture) previewTexture.dispose();
     previewTexture = texture;
     imageInfo.appliedPreview = `${texture.image.width} × ${texture.image.height}`;

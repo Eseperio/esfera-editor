@@ -35,7 +35,7 @@ Automatic subject selection requires macOS 14 or later. Development and testing 
 
 ## Download the app
 
-Get the **macOS Apple Silicon preview** from [GitHub Releases](https://github.com/Eseperio/esfera-editor/releases/tag/v0.2.0-preview.1). It includes its runtime, so Node.js, Python and Xcode are not needed to use the downloaded app.
+Get the **macOS Apple Silicon preview** from [GitHub Releases](https://github.com/Eseperio/esfera-editor/releases). It includes its runtime, so Node.js, Python and Xcode are not needed to use the downloaded app.
 
 1. Download and extract the ZIP, then move **Esfera.app** to Applications.
 2. Open Esfera and choose **Local AI → Install model**. The model is downloaded once; your photos stay on your computer.
